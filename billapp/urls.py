@@ -143,6 +143,8 @@ urlpatterns = [
     
     
     path('Purchasereport/',views.Purchasereport,name='Purchasereport'),
+    path('sharePurchaseReportsToEmail/',views.sharePurchaseReportsToEmail,name='sharePurchaseReportsToEmail'),
+    path('Purchasereport_graph/',views.Purchasereport_graph,name='Purchasereport_graph'),
     
     
     

@@ -1,5 +1,6 @@
 #MultuserbillingVAT
 from django.shortcuts import render, redirect
+from openpyxl import Workbook
 from .models import *
 from django.contrib import messages
 from django.contrib.auth.models import auth
@@ -43,6 +44,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.utils.html import strip_tags
 from django.core.mail import send_mail, EmailMultiAlternatives
 from django.http.response import JsonResponse, HttpResponse
+from django.db.models import Sum
 
 def home(request):
   return render(request, 'home.html')
@@ -3733,7 +3735,9 @@ def savePartyinvoice1(request,pk):
           tr_history = PartyTransactionHistory(party=party, Transactions_party=trans, action="CREATED")
           tr_history.save()
           return redirect('updateinvoice',pk=pk)
-              
+        
+        
+# Ginto Purchase Report             
   
 def Purchasereport(request):
     if request.user.is_company:
@@ -3745,4 +3749,104 @@ def Purchasereport(request):
     debit = DebitNote.objects.filter(company=cmp)
     parties = Party.objects.filter(company=cmp)
 
-    return render(request, 'Purchasereport.html', {'Purchase': purchases, 'debit': debit, "cmp": cmp, "parties": parties})
+    return render(request, 'Purchasereport.html', {'purchases': purchases, 'debit': debit, "cmp": cmp, "parties": parties})
+  
+  
+def sharePurchaseReportsToEmail(request):
+    if request.user:
+        try:
+            if request.method == 'POST':
+                emails_string = request.POST['email_ids']
+
+                # Split the string by commas and remove any leading or trailing whitespace
+                emails_list = [email.strip() for email in emails_string.split(',')]
+                email_message = request.POST['email_message']
+                # print(emails_list)
+
+                cmp = Company.objects.get( user = request.user.id)
+                invoices = PurchaseBill.objects.filter(cid=cmp)
+                debit_notes=DebitNote.objects.filter(company=cmp)
+
+                excelfile = BytesIO()
+                workbook = Workbook()
+                worksheet = workbook.active
+                worksheet.title = 'Purchases Reports'
+
+                # Write headers
+                headers = ['#', 'Date', 'Bill Number', 'Party Name', 'Type', 'Amount']
+                for col_num, header in enumerate(headers, 1):
+                    worksheet.cell(row=1, column=col_num, value=header)
+
+                # Write Purchases invoices data
+                for idx, invoice in enumerate(invoices, start=2):
+                    worksheet.cell(row=idx, column=1, value=idx - 1)  # Index
+                    worksheet.cell(row=idx, column=2, value=invoice.billdate)  # Date
+                    worksheet.cell(row=idx, column=3, value=invoice.billno)  # Invoice Number
+                    worksheet.cell(row=idx, column=4, value=invoice.party.party_name)  # Party Name
+                    worksheet.cell(row=idx, column=5, value='Bill')  # Transaction Type
+                    worksheet.cell(row=idx, column=6, value=invoice.grandtotal)  # Amount
+                    
+                # Write credit notes data
+                for idx, debit_note in enumerate(debit_notes, start=len(invoices) + 2):
+                    worksheet.cell(row=idx, column=1, value=idx - 1)  # Index
+                    worksheet.cell(row=idx, column=2, value=debit_note.debitdate)  # Date
+                    worksheet.cell(row=idx, column=3, value=debit_note.bill)  # Return Number
+                    worksheet.cell(row=idx, column=4, value=debit_note.party.party_name)  # Party Name
+                    worksheet.cell(row=idx, column=5, value='Debit Note')  # Transaction Type
+                    worksheet.cell(row=idx, column=6, value=debit_note.grandtotal)  # Amount               
+
+                # Save workbook to BytesIO object
+                workbook.save(excelfile)
+                mail_subject = f'Purchase Reports - {date.today()}'
+                message = f"Hi,\nPlease find the ALES REPORTS file attached. \n{email_message}\n\n--\nRegards,\n{cmp.company_name}\n{cmp.address}\n{cmp.state} - {cmp.country}\n{cmp.phone_number}"
+     
+                message = EmailMessage(mail_subject, message, settings.EMAIL_HOST_USER, emails_list)
+                message.attach(f'Purchase Reports-{date.today()}.xlsx', excelfile.getvalue(), 'application/vnd.ms-excel')
+                message.send(fail_silently=False)
+
+                messages.success(request, 'Purchase Report has been shared via email successfully..!')
+                return redirect(Purchasereport)
+        except Exception as e:
+            print(e)
+            messages.error(request, 'An error occurred while sharing the purchase report via email.')
+
+            return redirect(Purchasereport)
+
+
+
+from collections import defaultdict
+
+def Purchasereport_graph(request):
+    if request.user:
+        cmp = Company.objects.get(user = request.user.id)
+        current_year = datetime.now().year
+
+        monthly_purchase_data = defaultdict(int)
+        for month in range(1, 13):
+            monthly_purchase_data[month] = (
+                PurchaseBill.objects
+                .filter(billdate__month=month, billdate__year=current_year,company=cmp)
+                .aggregate(total_purchase=Sum('grandtotal'))['total_purchase'] or 0
+            )
+        # Retrieve yearly purchase data
+        current_year = datetime.now().year
+        yearly_purchase_data = defaultdict(int)
+        for year in range(2022, current_year + 1):
+            yearly_purchase_data[year] = (
+                PurchaseBill.objects
+                .filter(billdate__year=year,company=cmp)
+                .aggregate(total_purchase=Sum('grandtotal'))['total_purchase'] or 0
+            )
+
+        # Prepare data for chart
+        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        monthly_labels = [f"{month_names[month - 1]} {current_year}" for month in range(1, 13)]
+        monthly_purchase = [monthly_purchase_data[month] for month in range(1, 13)]
+
+        yearly_labels = [str(year) for year in range(2014, current_year + 1)]
+        yearly_purchase = [yearly_purchase_data[year] for year in range(2014, current_year + 1)]
+
+        # Prepare data for chart
+        chart_data = {'monthly_labels': monthly_labels, 'monthly_purchase': monthly_purchase,
+                    'yearly_labels': yearly_labels, 'yearly_purchase': yearly_purchase}
+        return render(request, 'purchase_graph.html', {'chart_data': chart_data,'cmp':cmp,})
