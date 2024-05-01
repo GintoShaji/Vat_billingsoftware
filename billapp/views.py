@@ -3739,79 +3739,105 @@ def savePartyinvoice1(request,pk):
         
 # Ginto Purchase Report             
   
+from django.db.models import Sum, DecimalField
+from django.shortcuts import render
+from .models import PurchaseBill, DebitNote, Party
+
 def Purchasereport(request):
     if request.user.is_company:
         cmp = request.user.company
     else:
         cmp = request.user.employee.company
+        
+    usr = CustomUser.objects.get(username=request.user)
       
     purchases = PurchaseBill.objects.filter(company=cmp)
     debit = DebitNote.objects.filter(company=cmp)
     parties = Party.objects.filter(company=cmp)
+   
+    total_purchase_amount = purchases.aggregate(total_purchase=Sum('grandtotal', output_field=DecimalField()))['total_purchase']
+    total_debit_amount = debit.aggregate(total_debit=Sum('grandtotal', output_field=DecimalField()))['total_debit']
 
-    return render(request, 'Purchasereport.html', {'purchases': purchases, 'debit': debit, "cmp": cmp, "parties": parties})
-  
-  
+    if total_purchase_amount is not None:
+        total_purchase_amount = round(total_purchase_amount, 2)
+
+    if total_purchase_amount is not None and total_debit_amount is not None:
+        total_amount_after_debit = total_purchase_amount - total_debit_amount
+    else:
+        total_amount_after_debit = None
+
+    return render(request, 'Purchasereport.html', {
+        'purchases': purchases,
+        'debit': debit,
+        'cmp': cmp,
+        'parties': parties,
+        'total_purchase_amount': total_purchase_amount,
+        'total_debit_amount': total_debit_amount,
+        'total_amount_after_debit': total_amount_after_debit,
+        'usr': request.user
+    })
+
+
+
+from django.shortcuts import redirect
+
 def sharePurchaseReportsToEmail(request):
-    if request.user:
-        try:
-            if request.method == 'POST':
-                emails_string = request.POST['email_ids']
+    if request.user.is_company:
+        cmp = request.user.company
+    else:
+        cmp = request.user.employee.company
+       
+    if request.method == 'POST':
+        emails_string = request.POST['email_ids']
 
-                # Split the string by commas and remove any leading or trailing whitespace
-                emails_list = [email.strip() for email in emails_string.split(',')]
-                email_message = request.POST['email_message']
-                # print(emails_list)
+        # Split the string by commas and remove any leading or trailing whitespace
+        emails_list = [email.strip() for email in emails_string.split(',')]
+        email_message = request.POST['email_message']
 
-                cmp = Company.objects.get( user = request.user.id)
-                invoices = PurchaseBill.objects.filter(cid=cmp)
-                debit_notes=DebitNote.objects.filter(company=cmp)
+        invoices = PurchaseBill.objects.filter(company=cmp)
+        debit_notes = DebitNote.objects.filter(company=cmp)
 
-                excelfile = BytesIO()
-                workbook = Workbook()
-                worksheet = workbook.active
-                worksheet.title = 'Purchases Reports'
+        excelfile = BytesIO()
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = 'Purchases Reports'
 
-                # Write headers
-                headers = ['#', 'Date', 'Bill Number', 'Party Name', 'Type', 'Amount']
-                for col_num, header in enumerate(headers, 1):
-                    worksheet.cell(row=1, column=col_num, value=header)
+        # Write headers
+        headers = ['#', 'Date', 'Bill Number', 'Party Name', 'Type', 'Amount']
+        for col_num, header in enumerate(headers, 1):
+            worksheet.cell(row=1, column=col_num, value=header)
 
-                # Write Purchases invoices data
-                for idx, invoice in enumerate(invoices, start=2):
-                    worksheet.cell(row=idx, column=1, value=idx - 1)  # Index
-                    worksheet.cell(row=idx, column=2, value=invoice.billdate)  # Date
-                    worksheet.cell(row=idx, column=3, value=invoice.billno)  # Invoice Number
-                    worksheet.cell(row=idx, column=4, value=invoice.party.party_name)  # Party Name
-                    worksheet.cell(row=idx, column=5, value='Bill')  # Transaction Type
-                    worksheet.cell(row=idx, column=6, value=invoice.grandtotal)  # Amount
+        # Write Purchases invoices data
+        for idx, invoice in enumerate(invoices, start=2):
+            worksheet.cell(row=idx, column=1, value=idx - 1)  # Index
+            worksheet.cell(row=idx, column=2, value=invoice.billdate.strftime('%Y-%m-%d'))  # Date
+            worksheet.cell(row=idx, column=3, value=invoice.billno)  # Invoice Number
+            worksheet.cell(row=idx, column=4, value=invoice.party.party_name)  # Party Name
+            worksheet.cell(row=idx, column=5, value='Bill')  # Transaction Type
+            worksheet.cell(row=idx, column=6, value=invoice.grandtotal)  # Amount
                     
-                # Write credit notes data
-                for idx, debit_note in enumerate(debit_notes, start=len(invoices) + 2):
-                    worksheet.cell(row=idx, column=1, value=idx - 1)  # Index
-                    worksheet.cell(row=idx, column=2, value=debit_note.debitdate)  # Date
-                    worksheet.cell(row=idx, column=3, value=debit_note.bill)  # Return Number
-                    worksheet.cell(row=idx, column=4, value=debit_note.party.party_name)  # Party Name
-                    worksheet.cell(row=idx, column=5, value='Debit Note')  # Transaction Type
-                    worksheet.cell(row=idx, column=6, value=debit_note.grandtotal)  # Amount               
+        # Write credit notes data
+        for idx, debit_note in enumerate(debit_notes, start=len(invoices) + 2):
+            worksheet.cell(row=idx, column=1, value=idx - 1)  # Index
+            worksheet.cell(row=idx, column=2, value=debit_note.created_at.strftime('%Y-%m-%d'))  # Date
+            worksheet.cell(row=idx, column=3, value=debit_note.returnno)  # Return Number
+            worksheet.cell(row=idx, column=4, value=debit_note.party.party_name)  # Party Name
+            worksheet.cell(row=idx, column=5, value='Debit Note')  # Transaction Type
+            worksheet.cell(row=idx, column=6, value=debit_note.grandtotal)  # Amount               
 
-                # Save workbook to BytesIO object
-                workbook.save(excelfile)
-                mail_subject = f'Purchase Reports - {date.today()}'
-                message = f"Hi,\nPlease find the ALES REPORTS file attached. \n{email_message}\n\n--\nRegards,\n{cmp.company_name}\n{cmp.address}\n{cmp.state} - {cmp.country}\n{cmp.phone_number}"
+        # Save workbook to BytesIO object
+        workbook.save(excelfile)
+        mail_subject = f'Purchase Reports - {date.today()}'
+        message = f"Hi,\nPlease find the ALES REPORTS file attached. \n{email_message}\n\n--\nRegards,\n{cmp.company_name}\n{cmp.address}\n{cmp.state} - {cmp.country}\n{cmp.contact}"
      
-                message = EmailMessage(mail_subject, message, settings.EMAIL_HOST_USER, emails_list)
-                message.attach(f'Purchase Reports-{date.today()}.xlsx', excelfile.getvalue(), 'application/vnd.ms-excel')
-                message.send(fail_silently=False)
+        message = EmailMessage(mail_subject, message, settings.EMAIL_HOST_USER, emails_list)
+        message.attach(f'Purchase Reports-{date.today()}.xlsx', excelfile.getvalue(), 'application/vnd.ms-excel')
+        message.send(fail_silently=False)
 
-                messages.success(request, 'Purchase Report has been shared via email successfully..!')
-                return redirect(Purchasereport)
-        except Exception as e:
-            print(e)
-            messages.error(request, 'An error occurred while sharing the purchase report via email.')
-
-            return redirect(Purchasereport)
-
+        # messages.success(request, 'Purchase Report has been shared via email successfully..!')
+        return redirect('Purchasereport')  
+    # messages.error(request, 'An error occurred while sharing the purchase report via email.')
+    return redirect('Purchasereport')
 
 
 from collections import defaultdict
@@ -3819,6 +3845,7 @@ from collections import defaultdict
 def Purchasereport_graph(request):
     if request.user:
         cmp = Company.objects.get(user = request.user.id)
+        usr = CustomUser.objects.get(username=request.user)
         current_year = datetime.now().year
 
         monthly_purchase_data = defaultdict(int)
@@ -3849,4 +3876,4 @@ def Purchasereport_graph(request):
         # Prepare data for chart
         chart_data = {'monthly_labels': monthly_labels, 'monthly_purchase': monthly_purchase,
                     'yearly_labels': yearly_labels, 'yearly_purchase': yearly_purchase}
-        return render(request, 'purchase_graph.html', {'chart_data': chart_data,'cmp':cmp,})
+        return render(request, 'purchase_graph.html', {'chart_data': chart_data,'cmp':cmp,'usr':request.user})
