@@ -8,20 +8,19 @@
 
 <style>
     .chart-page-container {
-        width: 100%; /* Full width */
-        padding: 20px; /* Add padding for spacing */
-
+        width: 100%;
+        padding: 20px;
     }
 
     .chart-container {
         width: 65%;
-        margin: 0 auto; /* Center align horizontally */
+        margin: 0 auto;
         margin-right: 8%;
         margin-top: 5%;
     }
 
     #chartToggleForm {
-        margin-left: 20px; /* Center align the radio buttons */
+        margin-left: 20px;
     }
 </style>
 
@@ -48,14 +47,13 @@
         </div>
 
         <script>
-            // JavaScript to render the charts using Chart.js
             document.addEventListener('DOMContentLoaded', function () {
                 var monthlyChartContainer = document.getElementById('monthlyChartContainer');
                 var yearlyChartContainer = document.getElementById('yearlyChartContainer');
-
+        
                 document.getElementById('chartToggleForm').addEventListener('change', function () {
                     var selectedChart = document.querySelector('input[name="chartType"]:checked').value;
-
+        
                     if (selectedChart === 'monthly') {
                         monthlyChartContainer.style.display = 'block';
                         yearlyChartContainer.style.display = 'none';
@@ -64,10 +62,10 @@
                         yearlyChartContainer.style.display = 'block';
                     }
                 });
-
+        
                 var ctxMonthly = document.getElementById('monthlyChart').getContext('2d');
                 var ctxYearly = document.getElementById('yearlyChart').getContext('2d');
-
+        
                 var monthlyData = {
                     labels: {{ chart_data.monthly_labels|safe }},
                     datasets: [{
@@ -76,11 +74,16 @@
                         backgroundColor: '#68020F',
                         borderColor: '#68020F',
                         borderWidth: 1
+                    },
+                    {
+                        label: 'Monthly Debit',
+                        data: {{ chart_data.monthly_debit|safe }},
+                        backgroundColor: '#F21137',
+                        borderColor: '#F21137',
+                        borderWidth: 1
                     }]
                 };
-
-
-
+        
                 var yearlyData = {
                     labels: {{ chart_data.yearly_labels|safe }},
                     datasets: [{
@@ -89,9 +92,16 @@
                         backgroundColor: '#68020F',
                         borderColor: '#68020F',
                         borderWidth: 1
+                    },
+                    {
+                        label: 'Yearly Debit',
+                        data: {{ chart_data.yearly_debit|safe }},
+                        backgroundColor: '#F21137',
+                        borderColor: '#F21137',
+                        borderWidth: 1
                     }]
                 };
-
+        
                 var monthlyChart = new Chart(ctxMonthly, {
                     type: 'bar',
                     data: monthlyData,
@@ -105,7 +115,7 @@
                         }
                     }
                 });
-
+        
                 var yearlyChart = new Chart(ctxYearly, {
                     type: 'line',
                     data: yearlyData,
@@ -121,6 +131,7 @@
                 });
             });
         </script>
+        
     </div>
 </div>
 {% endblock %}
