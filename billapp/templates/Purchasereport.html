@@ -181,13 +181,13 @@
 
     
 <div class="body-wrapper">
-    <br><br><br>
+    <br><br><br
     
     <p></p>
     <div class="row ps-3 pe-3 m-0" >
         <div class="col-sm-12 ps-2 pe-3">
             <div class="row pt-0 m-0">
-                <div class="card p-0 bg-light bs" style="height: 100rem;">
+                <div class="card p-0 bg-light bs">
                  <br>
                     <div class="row m-0 p-0 pt-3" >
                         <div class="col-sm-12 col-lg-12">
@@ -315,7 +315,7 @@
 
                     <div class="row">
                         <div class="col-md-12" style="margin-left: 4vh;">
-                            <div class="mt-3" style="overflow: scroll;height: 28rem; width: 97%;" id="tablediv">
+                            <div class="mt-3" style=" width: 97%;" id="tablediv">
                                 
                                 <table class="table table-bordered table-dangerbtn-danger table-striped tb table-responsive w-100" id="billtable"  style="text-align: center;">
                                     <thead style="background: #68020F; color: white;">
@@ -412,7 +412,7 @@
                                         {% for debit_note in debit %}
                                         <tr>
                                             <td>{{ debit_note.created_at|date:'d-m-Y' }}</td>
-                                            <td>{{ debit_note.bill }}</td>
+                                            <td>{{ debit_note.bill.billno }}</td>
                                             <td>{{ debit_note.party.party_name }}</td>
                                             <td>Debit Note</td>
                                             <td>{{ debit_note.grandtotal }}</td>
@@ -646,19 +646,33 @@
 
 <script>
     function printfunction(){
-        print4 = document.getElementById('tablediv')
-        if (print4.style.display !== 'none'){
-            var printContents = document.getElementById("tablediv").innerHTML;
-        }else{
-            var printContents = document.getElementById("whatToPrint").innerHTML;
+        var print4 = document.getElementById('tablediv');
+        var printContents = "";
+
+        if (print4.style.display !== 'none') {
+            printContents = print4.innerHTML;
+        } else {
+            printContents = document.getElementById("whatToPrint").innerHTML;
         }
+
+        // Extracting fromDate and toDate from the table data
+        var tableRows = document.querySelectorAll("#tablediv table tr");
+        var fromDate = tableRows[1].cells[0].textContent; // Assuming the first cell of the second row contains the fromDate
+        var lastRowIndex = tableRows.length - 1;
+        var toDate = tableRows[lastRowIndex].cells[0].textContent; // Assuming the first cell of the last row contains the toDate
+
+        // Append fromDate and toDate to printContents
+        printContents += "<br>From: " + fromDate + " To: " + toDate;
+
         var $printerDiv = $('<div class="printContainer" id=printContainer></div>');
         $printerDiv.html(printContents); 
         $('body').append($printerDiv).addClass("printingContent"); 
+
         var h1Element = document.createElement("h1");
         var companyName = "<br><br>{{cmp.company_name}}"; 
         var currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-        h1Element.innerHTML = "<b>" + companyName + "</b>" + "<br> Purchase Report <br>" + currentDate;
+        h1Element.innerHTML = "<b>" + companyName + "</b>" + "<br> Purchase Report <br>" + 
+                           "From: " + fromDate + " To: " + toDate;
         h1Element.style.textAlign = "center";
         h1Element.style.marginBottom = "5px";
         var head = document.getElementById("printContainer");
@@ -668,6 +682,11 @@
         $('body').removeClass("printingContent");
     }
 </script>
+
+
+
+
+
 
 
 <script>

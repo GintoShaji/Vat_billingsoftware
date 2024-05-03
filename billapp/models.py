@@ -256,11 +256,11 @@ class DebitNote(models.Model):
     # bill = models.ForeignKey(PurchaseBill, on_delete=models.CASCADE)
     
     returnno = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateField(auto_now_add=True)
     subtotal=models.DecimalField(max_digits=10, decimal_places=2,default=0,null=True)
     taxamount=models.DecimalField(max_digits=10, decimal_places=2, default=0, null=True)
     adjustment=models.DecimalField(max_digits=10, decimal_places=2, default=0, null=True)
-    grandtotal=models.DecimalField(max_digits=10, decimal_places=2, default=0, null=True)
+    grandtotal=models.FloatField( default=0, null=True)
 
     def __str__(self):
         return f"DebitNote {self.debit_note_number} - {self.party} - {self.bill}"
