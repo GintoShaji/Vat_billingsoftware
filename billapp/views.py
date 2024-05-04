@@ -3841,40 +3841,68 @@ def sharePurchaseReportsToEmail(request):
     return redirect('Purchasereport')
 
 
-from collections import defaultdict
+
+# from collections import defaultdict
 
 # def Purchasereport_graph(request):
 #     if request.user:
-#         cmp = Company.objects.get(user = request.user.id)
+#         cmp = Company.objects.get(user=request.user.id)
 #         usr = CustomUser.objects.get(username=request.user)
-#         current_year = datetime.now().year
+#         current_year = datetime.now().year       
 
 #         monthly_purchase_data = defaultdict(int)
 #         for month in range(1, 13):
+            
 #             monthly_purchase_data[month] = (
 #                 PurchaseBill.objects
-#                 .filter(billdate__month=month, billdate__year=current_year,company=cmp)
-#                 .aggregate(total_purchase=Sum('grandtotal'))['total_purchase'] or 0
+#                 .filter(billdate__month=month, billdate__year=current_year, company=cmp)
+#                 .aggregate(total_purchase=Sum('grandtotal'))['total_purchase'] or 0             
 #             )
-#         current_year = datetime.now().year
+            
+#         monthly_debit_data = defaultdict(int)
+#         for month in range(1, 13):
+            
+#             monthly_debit_data[month] = (
+#                 DebitNote.objects
+#                 .filter(created_at__month=month, created_at__year=current_year, company=cmp)
+#                 .aggregate(total_debit=Sum('grandtotal'))['total_debit'] or 0
+#             )
+
 #         yearly_purchase_data = defaultdict(int)
-#         for year in range(2022, current_year + 1):
+#         for year in range(2014, current_year + 1):
 #             yearly_purchase_data[year] = (
 #                 PurchaseBill.objects
-#                 .filter(billdate__year=year,company=cmp)
+#                 .filter(billdate__year=year, company=cmp)
 #                 .aggregate(total_purchase=Sum('grandtotal'))['total_purchase'] or 0
+#             )
+
+#         yearly_debit_data = defaultdict(int)
+#         for year in range(2014, current_year + 1):
+#             yearly_debit_data[year] = (
+#                 DebitNote.objects
+#                 .filter(created_at__year=year, company=cmp)
+#                 .aggregate(total_debit=Sum('grandtotal'))['total_debit'] or 0
 #             )
 
 #         month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 #         monthly_labels = [f"{month_names[month - 1]} {current_year}" for month in range(1, 13)]
 #         monthly_purchase = [monthly_purchase_data[month] for month in range(1, 13)]
+#         monthly_debit = [monthly_debit_data[month] for month in range(1, 13)]
 
 #         yearly_labels = [str(year) for year in range(2014, current_year + 1)]
 #         yearly_purchase = [yearly_purchase_data[year] for year in range(2014, current_year + 1)]
+#         yearly_debit = [yearly_debit_data[year] for year in range(2014, current_year + 1)]
 
-#         chart_data = {'monthly_labels': monthly_labels, 'monthly_purchase': monthly_purchase,
-#                     'yearly_labels': yearly_labels, 'yearly_purchase': yearly_purchase}
-#         return render(request, 'purchase_graph.html', {'chart_data': chart_data,'cmp':cmp,'usr':request.user})
+#         chart_data = {
+#             'monthly_labels': monthly_labels,
+#             'monthly_purchase': monthly_purchase,
+#             'monthly_debit': monthly_debit,
+#             'yearly_labels': yearly_labels,
+#             'yearly_purchase': yearly_purchase,
+#             'yearly_debit': yearly_debit
+#         }
+#         return render(request, 'purchase_graph.html', {'chart_data': chart_data, 'cmp': cmp, 'usr': request.user})
+
 
 from collections import defaultdict
 
@@ -3884,35 +3912,33 @@ def Purchasereport_graph(request):
         usr = CustomUser.objects.get(username=request.user)
         current_year = datetime.now().year       
 
-        monthly_purchase_data = defaultdict(int)
+        monthly_purchase_data = defaultdict(float)  
         for month in range(1, 13):
-            
-            monthly_purchase_data[month] = (
+            monthly_purchase_data[month] = float(  
                 PurchaseBill.objects
                 .filter(billdate__month=month, billdate__year=current_year, company=cmp)
                 .aggregate(total_purchase=Sum('grandtotal'))['total_purchase'] or 0             
             )
             
-        monthly_debit_data = defaultdict(int)
+        monthly_debit_data = defaultdict(float)  
         for month in range(1, 13):
-            
-            monthly_debit_data[month] = (
+            monthly_debit_data[month] = float(  
                 DebitNote.objects
                 .filter(created_at__month=month, created_at__year=current_year, company=cmp)
                 .aggregate(total_debit=Sum('grandtotal'))['total_debit'] or 0
             )
 
-        yearly_purchase_data = defaultdict(int)
+        yearly_purchase_data = defaultdict(float)  
         for year in range(2014, current_year + 1):
-            yearly_purchase_data[year] = (
+            yearly_purchase_data[year] = float(  
                 PurchaseBill.objects
                 .filter(billdate__year=year, company=cmp)
                 .aggregate(total_purchase=Sum('grandtotal'))['total_purchase'] or 0
             )
 
-        yearly_debit_data = defaultdict(int)
+        yearly_debit_data = defaultdict(float) 
         for year in range(2014, current_year + 1):
-            yearly_debit_data[year] = (
+            yearly_debit_data[year] = float(  
                 DebitNote.objects
                 .filter(created_at__year=year, company=cmp)
                 .aggregate(total_debit=Sum('grandtotal'))['total_debit'] or 0
